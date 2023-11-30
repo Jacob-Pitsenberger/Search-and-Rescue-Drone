@@ -39,16 +39,56 @@ class DroneController:
         # Create a button to send takeoff and land commands to the drone
         self.takeoff_land_button = Button(self.root, text="Takeoff/Land", command=lambda: self.takeoff_land())
 
-        ################ STEP 1 ########################
         # Create a new parameter to determine if camera direction is set to the bottom camera (yes = True, no = False)
         self.camera_down = False
 
         # Create a new button for switching the camera direction and set it to a new class method that we will create last.
         self.camera_dir_button = Button(self.root, text="Switch Camera Direction",
                                         command=lambda: self.set_camera_direction())
+
+        ################ STEP 1 ########################
+        # Create a new parameter to determine if face detection is active.
+        self.face_detection = False
+        # Create a new button for activating face detection and set it to a new class method that we will create last.
+        self.face_detection_button = Button(self.root, text="Detect Faces",
+                                            command=lambda: self.set_detect_face())
         ################################################
 
+    ################# STEP 3 #######################
+    # Define a method for activating and deactivating face detection.
+    def set_detect_face(self):
+        if self.face_detection:
+            self.face_detection = False
+        else:
+            self.face_detection = True
+    #################################################
+
     ################# STEP 4 #######################
+    # Get our detect_faces method from a previous video and define it as a static method in our class.
+    @staticmethod
+    def detect_faces(frame):
+        """Print the number of faces detected in the drones camera stream to the output window and
+        draws a box around any faces in the cv2 window if they are detected"""
+
+        # Create a cascade
+        faceCascade = cv2.CascadeClassifier("data-files\haarcascade_frontalface_default.xml")
+
+        # Covert the frame to grayscale
+        frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        # Get numpy array with values for faces detected by passing in grayscale image, scale factor, and minimum neighbors
+        faces = faceCascade.detectMultiScale(frame_gray, 1.2, 3)
+
+        # For the x, y coordinates and width, height detected
+        for (x, y, w, h) in faces:
+            # Draw a rectangle around the face using these values
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
+        # Update the face count with the number of faces detected
+        face_count = "Faces: " + str(len(faces))
+        cv2.putText(frame, face_count, (10, 25), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 255), 1,
+                    2)  # Print the face count as standard output
+        print(face_count)
+
     # Define a method for setting the camera direction
     def set_camera_direction(self):
         if self.camera_down:
@@ -57,8 +97,6 @@ class DroneController:
         else:
             self.camera_down = True
             self.drone.set_video_direction(self.drone.CAMERA_DOWNWARD)
-
-    #################################################
 
     # Define a method for taking off and landing
     def takeoff_land(self):
@@ -71,18 +109,6 @@ class DroneController:
     # Method to run the application
     def run_app(self):
         try:
-            ############### STEP 2 ########################################
-            # Rewrite this method to use .grid() method for adding all widgets to the GUI.
-            # ****Format overall grid to be a 3x3 matrix.
-
-            # takeoff_land_button
-            # input_frame
-            # camera_direction_button
-            # cap_lbl
-
-            # ****ALSO HAVE TO DO THIS FOR cap_lbl in the video_stream method.*******
-            ################################################################
-
             # Add the button and video stream label to the window
             self.takeoff_land_button.grid(column=1, row=2)
 
@@ -125,6 +151,11 @@ class DroneController:
 
             self.camera_dir_button.grid(column=0, row=1)
 
+            ############### STEP 2 ########################################
+            # Add our new button to the gui.
+            self.face_detection_button.grid(column=0, row=2)
+            ################################################################
+
             self.cap_lbl.grid(column=1, row=1)
 
             # Call the video stream method
@@ -150,10 +181,15 @@ class DroneController:
 
         frame = cv2.resize(frame, (w, h))
 
-        ######################### STEP 3 #############################
         # After resizing check camera direction and if self.camera_down is True then crop appropriately.
         if self.camera_down:
             frame = frame[0:240, 0:320]
+
+        ######################### STEP 5 #############################
+        # After resizing check if face_detection is True and if so then run our detect_faces method on the frame
+        if self.face_detection:
+            print("running detect_faces")
+            self.detect_faces(frame)
         ###############################################################
 
         # Convert the current frame to the rgb colorspace
@@ -166,7 +202,6 @@ class DroneController:
         imgtk = ImageTk.PhotoImage(image=img)
 
         # grid the image label at the center of the window
-        ############# GRID HERE ALSO ################
         self.cap_lbl.grid(column=1, row=1)
 
         # Set it to the photo image
@@ -184,11 +219,9 @@ class DroneController:
         try:
             # Release any resources
             print("Cleaning up resources...")
-            #################### STEP 5 #######################
             # Ensure to set the camera direction back to forward if not.
             if self.camera_down:
                 self.drone.set_video_direction(self.drone.CAMERA_FORWARD)
-            ###################################################
             self.drone.end()
             self.root.quit()  # Quit the Tkinter main loop
             exit()
